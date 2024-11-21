@@ -11,11 +11,10 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// Data structure to represent a document
 type User struct {
-	Name  string `bson:"name"`
-	Email string `bson:"email"`
-	Age   int    `bson:"age"`
+	Name  string
+	Email string
+	Age   int
 }
 
 func connectToMongo(uri string) *mongo.Client {
@@ -34,8 +33,7 @@ func connectToMongo(uri string) *mongo.Client {
 	fmt.Println("Connected to MongoDB")
 	return client
 }
-
-func insertData(collection *mongo.Collection) {
+func insert(collection *mongo.Collection) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -53,8 +51,7 @@ func insertData(collection *mongo.Collection) {
 	}
 	fmt.Printf("Inserted document with ID: %v\n", result.InsertedID)
 }
-
-func fetchData(collection *mongo.Collection) {
+func fetch(collection *mongo.Collection) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -65,7 +62,7 @@ func fetchData(collection *mongo.Collection) {
 		log.Fatalf("Failed to find documents: %v", err)
 	}
 	defer cursor.Close(ctx)
-w
+
 	fmt.Println("Fetched documents:")
 	for cursor.Next(ctx) {
 		var user User
@@ -79,21 +76,29 @@ w
 	}
 }
 
-func main() {
-	client := connectToMongo("uri")
-
-	database := client.Database("testdb")
-	collection := database.Collection("users")
-
-	insertData(collection)
-
-	fetchData(collection)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+func fetchDataWithoutStructure(collection *mongo.Collection) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	err := client.Disconnect(ctx);
-	if  err != nil {
-		log.Fatalf("Failed to disconnect from MongoDB: %v", err)
+
+	// Fetch all documents without specifying a structure
+	filter := bson.D{} // Empty filter fetches all documents
+	cursor, err := collection.Find(ctx, filter)
+	if err != nil {
+		log.Fatalf("Failed to fetch documents: %v", err)
 	}
-	fmt.Println("Disconnected from MongoDB")
+	defer cursor.Close(ctx)
+
+	// Iterate over the cursor and decode each document
+	fmt.Println("Fetched documents:")
+	for cursor.Next(ctx) {
+		var rawDocument bson.M // Use bson.M to handle any structure
+		if err := cursor.Decode(&rawDocument); err != nil {
+			log.Fatalf("Failed to decode document: %v", err)
+		}
+		fmt.Printf("%+v\n", rawDocument) // Print the raw document as a map
+	}
+
+	if err := cursor.Err(); err != nil {
+		log.Fatalf("Cursor error: %v", err)
+	}
 }
